@@ -1,0 +1,103 @@
+name: Create Github Release
+
+on:
+  workflow_call:
+    inputs:
+      referenceName:
+        required: true
+        type: string
+      referenceType:
+        required: true
+        type: string
+      changelogDirectory:
+        required: true
+        type: string 
+
+jobs:
+  Release:
+    name: Create Github Release
+    if: inputs.referenceType == 'tag'
+    run-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Check Release
+        id: release_check
+        run: |
+          REF_NAME="${{ inputs.referenceName }}"
+          RELEASE_REGEX="^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$"
+          PRE_RELEASE_REGEX="^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+-[0-9a-zA-Z]+$"
+          if [[ $REF_NAME =~ $RELEASE_REGEX ]]
+          then
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+            echo "Release"
+            exit 0
+          elif [[ $REF_NAME =~ $PRE_RELEASE_REGEX ]]
+          then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+            echo "Pre-Release"
+            exit 0
+          else
+            echo "Tag is in the incorrect format. Should be 0.0.0.0 for a release or 0.0.0.0-someprereleasetag for a pre-release."
+            exit 1
+          fi
+
+      - name: Check Changelog
+        id: changelog_check
+        if: steps.release_check.outputs.prerelease == 'false'
+        run: |
+          FILE=./${{ inputs.changelogDirectory }}/${{ inputs.referenceName }}.md
+          echo "$FILE"
+          if [ -f "$FILE" ]
+          then
+            echo "changelog_exists=true" >> $GITHUB_OUTPUT
+            echo "changelog_file=$FILE" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "There is no changelog found for tag $FILE. Please add a $FILE.md file with the changes for this version in the Documentation folder."
+            exit 1
+          fi
+
+      - name: Retrieve Installation Package
+        id: retrieveInstallationPackage
+        uses: actions/download-artifact@v4
+        with:
+          name: DataMiner Installation Package
+          path: _DataMinerInstallationPackage
+
+      - name: Find Installation Package
+        id: findInstallationPackage
+        run: |
+          path=$(find _DataMinerInstallationPackage -type f -name '*.dmapp')
+          echo $path
+
+          if [ ! -z "$path" ]
+          then
+            newpath="${path%.*}_${{ inputs.referenceName }}.dmapp"
+            echo $newpath
+            mv $path $newpath
+            echo "dmappPackageName=$newpath" >> $GITHUB_OUTPUT
+          else
+            exit 1
+            echo "dmappPackageName=""" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Logging
+        run: |
+          echo ${{ steps.changelog_check.outputs.changelog_exists }}
+          echo ${{ steps.changelog_check.outputs.changelog_file }}
+          echo ${{ steps.release_check.outputs.prerelease }}
+          echo ${{ steps.findInstallationPackage.outputs.dmappPackageName }}
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          name: ${{ inputs.referenceName }}
+          bodyFile: ${{ steps.changelog_check.outputs.changelog_file }}
+          draft: false
+          prerelease: ${{ steps.release_check.outputs.prerelease == 'true' }}
+          allowUpdates: true
+          artifacts: ${{ steps.findInstallationPackage.outputs.dmappPackageName }}
