@@ -17,7 +17,7 @@ jobs:
   github_release_creation:
     name: Create Github Release
     if: inputs.referenceType == 'tag'
-    run-on: ubuntu-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
