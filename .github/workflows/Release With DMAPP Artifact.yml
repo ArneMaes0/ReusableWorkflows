@@ -52,6 +52,7 @@ jobs:
           FILE=./${{ inputs.changelogDirectory }}/${{ inputs.referenceName }}.md
           OTHERFILE=./${{ inputs.changelogDirectory }}/CHANGELOG_${{ inputs.referenceName }}.md
           echo "$FILE"
+          echo "$OTHERFILE"
           if [ -f "$FILE" ]
           then
             echo "changelog_exists=true" >> $GITHUB_OUTPUT
