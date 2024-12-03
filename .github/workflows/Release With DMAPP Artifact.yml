@@ -66,7 +66,7 @@ jobs:
             echo "changelog_file=$FILE" >> $GITHUB_OUTPUT
             exit 0
           else
-            echo "There is no changelog found for tag $FILE. Please add a $FILE file with the changes for this version in the Documentation folder."
+            echo "There is no changelog found for tag $FILE. Please add a $FILE file or a $OTHERFILE file with the changes for this version in the Documentation folder."
             exit 1
           fi
 
